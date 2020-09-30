@@ -1,58 +1,49 @@
---START DOCKER CONTAINER--
+--Download Dataset (62498 dutch annotated files)--  
+https://mega.nz/file/QWRinJyQ#OfmBtfg3LwTdM0y9DmuFgom10ny78NPxp3Zvr3sp__o  
 
-sudo docker run --gpus 2 -it 7c3
+--PREREQUISITES--  
+Make dir to write the trained networks, /media/data/networks in the example  
+  
+--BUILD DOCKER FILE--  
+sudo docker docker build .    
 
---ENABLE GPU GROWTH--
+--START DOCKER CONTAINER--  
+sudo docker run --gpus 2 -v ~HOME/Desktop/dataset:/DeepSpeech/dataset -v /media/data/networks:/DeepSpeech/export -it 6770340f42fd /bin/bash  
+  
+--ENABLE GPU GROWTH--  
+Run command in container  
+export TF_FORCE_GPU_ALLOW_GROWTH=true  
+  
+--FIX DATASET--  
+Run command in container  
+bin/import_cv2.py --filter_alphabet data/alphabet.txt --audio_dir dataset/clips/clips dataset  
+  
+--START TRAINING--  
+Run command in container  
+dattime=`date "+%Y%m%d%H%M%S%3N"` && python3 ./DeepSpeech.py --drop_source_layers 1 alphabet_config_path /data/alphabet.txt --save_checkpoint_dir export/checkpoints/$dattime --load_checkpoint_dir export/checkpoints/$dattime --train_files dataset/clips/clips/validated.csv --dev_files dataset/clips/clips/dev.csv --test_files dataset/clips/clips/test.csv --dropout_rate=0.4 --epochs=300 --early_stop=true --export_dir export/checkpoints/$dattime/export --export_tflite=true --learning_rate=0.0001 --lm_alpha=0.9 --lm_beta=1.15 --train_batch_size=70 --export_language="nl-Latn-BE" --automatic_mixed_precision=True --beam_width=500 --train_cudnn=True --es_epochs=200 --summary_dir=export/checkpoints/$dattime/tensorboard
+  
+--MONITOR GPU('S)--  
+Run command out of container  
+watch -n1 nvidia-smi  
+  
+--REMOVE CHECKPOINTS DIRECTORY--  
+rm -R checkpoints  
+  
+  
+extra's:  
+  
+--GATHERING DATA FROM YOUTUBE (audio+subs)--  
+downloaden as mp3 (youtubepp.com)  
+srt + txt download via https://savesubs.com/  
+  
+-SPLIT VIDEO BY SRT TIMESTAMPS--  
+bash ./split.sh 19/*.mp3 19/*.srt  
+  
+--RENAME FILES--  
+j=1;for i in *.mp3; do mv "$i" YT_YOUTUBEID"$j".mp3; let j=j+1;done  
 
-export TF_FORCE_GPU_ALLOW_GROWTH=true
-
---KOPIEER NL DATASET--
-
-sudo docker cp /home/neuralis/DeepSpeech/nl.tar.gz bf92fbb05817:/DeepSpeech
-
---UNPACK DATASET--
-
-tar -zxvf nl.tar.gz
-
-
---FIX DATASET--
-
-bin/import_cv2.py --filter_alphabet data/alphabet.txt --audio_dir clips .
-
---MAAK DIRECTORY VOOR MODEL--
-
-mkdir export
-
---START TRAINING--
-
-python3 ./DeepSpeech.py --drop_source_layers 1 alphabet_config_path /data/alphabet.txt --save_checkpoint_dir checkpoints --load_checkpoint_dir checkpoints --train_files clips/validated.csv --dev_files clips/dev.csv --test_files clips/test.csv --dropout_rate=0.15 --epochs=100 --early_stop=true --export_dir /export --export_tflite=true --learning_rate=0.00025 --lm_alpha=0.75 --lm_beta=1.85 --train_batch_size=68 --export_language="nl-Latn-BE" --automatic_mixed_precision=True --beam_width=500 --augmentation_freq_and_time_masking=True --augmentation_pitch_and_tempo_scaling=True --augmentation_spec_dropout_keeprate 0.8 --train_cudnn=True --es_epochs=30
-
---MONITOR GPU--
-
-watch -n1 nvidia-smi
-
---KOPIEER MODEL NAAR PC--
-
-sudo docker cp /home/neuralis/DeepSpeech/nl.tar.gz 1659:/DeepSpeech
-
-
-
---NANO CONFIGUREREN--
-
-sudo apt-get install python3.7
-sudo apt install python3-pip
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 1
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.7 2
-sudo update-alternatives --config python3
-2
-pip3 install cython
-sudo apt-get install python3.7-dev
-sudo pip3 install deepspeech-0.7.0-cp37-cp37m-linux_aarch64.whl
-
---KOPIEER MODEL NAAR NANO--
-
-scp /home/neuralis/netwerken/output_graph.tflite neuralis@192.168.0.11:/home/neuralis
-
---INFERENCE STARTEN OP NANO--
-
-deepspeech --model output_graph.tflite --audio kanaalz.wav
+--CONVERT TO MONO--  
+for f in *.mp3; do ffmpeg -i "$f" -c:a libmp3lame -q:a 2 -ac 1 mono-"$f"; done  
+  
+--EXPORT FILE LIST--  
+ls -1v > lijst.txt  
