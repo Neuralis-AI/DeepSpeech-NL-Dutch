@@ -30,14 +30,19 @@ watch -n1 nvidia-smi
 rm -R checkpoints  
   
   
-extra's:  
+Extras:  
   
+--SPLIT AUDIOBOOK BY SILENCES--
+sox -V3 INPUT.wav OUTPUT.wav silence 1 0.50 0.1% 1 0.3 0.1% : newfile : restart
+  
+OR    
+    
 --GATHERING DATA FROM YOUTUBE (audio+subs)--  
 downloaden as mp3 (youtubepp.com)  
 srt + txt download via https://savesubs.com/  
   
 -SPLIT VIDEO BY SRT TIMESTAMPS--  
-bash ./split.sh 19/*.mp3 19/*.srt  
+bash ./split.sh foldername/*.mp3 foldername/*.srt  
   
 --RENAME FILES--  
 j=1;for i in *.mp3; do mv "$i" YT_YOUTUBEID"$j".mp3; let j=j+1;done  
